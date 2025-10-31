@@ -1,19 +1,47 @@
 name: web-ci
+
 on:
   pull_request:
     branches: [develop, integration, master]
-    paths: ["apps/web/**", ".github/workflows/web-ci.yml", "packages/**"]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/web-ci.yml"
   push:
     branches: [develop, integration, master]
-    paths: ["apps/web/**", ".github/workflows/web-ci.yml", "packages/**"]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/web-ci.yml"
+
+# Prevent duplicate runs on the same ref
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  NODE_ENV: production
+  NEXT_TELEMETRY_DISABLED: "1"
+  CI: "true"
 
 jobs:
-  web:
+  build-test:
+    name: Install • Lint • Typecheck • Test • Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
@@ -24,14 +52,82 @@ jobs:
           version: 9
           run_install: false
 
-      - name: Install deps
+      - name: Install dependencies (workspace)
         run: pnpm install --frozen-lockfile
-      - name: Lint
+
+      # --- Quality gates ---
+      - name: Prettier (optional, enable if you want formatting to fail CI)
+        working-directory: apps/web
+        run: |
+          if [ -f ../../.prettierrc ] || [ -f .prettierrc ] ; then
+            pnpm prettier --check "**/*.{ts,tsx,js,jsx,json,md,css}"
+          else
+            echo "No Prettier config detected; skipping."
+          fi
+
+      - name: ESLint
         working-directory: apps/web
         run: pnpm lint
+
       - name: Type check
         working-directory: apps/web
         run: pnpm type-check
-      - name: Build
+
+      # --- Tests ---
+      - name: Unit tests (Vitest) with coverage
+        working-directory: apps/web
+        run: |
+          if pnpm -s --silent -w ls vitest >/dev/null 2>&1; then
+            pnpm test -- --coverage --reporter=junit --outputFile junit.xml
+          else
+            echo "Vitest not configured yet; skipping tests."
+          fi
+
+      # --- Build ---
+      - name: Build (Next.js)
         working-directory: apps/web
         run: pnpm build
+
+      # --- Artifacts for PR review & debugging ---
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage-${{ github.run_id }}
+          path: apps/web/coverage
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload JUnit test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-junit-${{ github.run_id }}
+          path: apps/web/junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Next build (diagnostics)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-next-build-${{ github.run_id }}
+          path: |
+            apps/web/.next
+            !apps/web/.next/cache
+          if-no-files-found: ignore
+          retention-days: 3
+
+      # --- Job summary (nice touch for PRs) ---
+      - name: Summarize results
+        if: always()
+        run: |
+          echo "## Web CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- ESLint: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
+          echo "- Type check: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
+          if [ -f apps/web/junit.xml ]; then
+            echo "- Tests: See uploaded JUnit & coverage artifacts" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Tests: (skipped)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- Build: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
