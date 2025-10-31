@@ -5,10 +5,10 @@ export default [
   },
   {
     files: ["**/*.{ts,tsx}"],
-    languageOptions: { parser: require("@typescript-eslint/parser") },
+    languageOptions: { parser: import("@typescript-eslint/parser") },
     plugins: {
-      "@typescript-eslint": require("@typescript-eslint/eslint-plugin"),
-      import: require("eslint-plugin-import"),
+      "@typescript-eslint": import("@typescript-eslint/eslint-plugin"),
+      import: import("eslint-plugin-import"),
     },
     rules: {
       "import/order": [
