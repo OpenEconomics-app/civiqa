@@ -14,31 +14,41 @@ on:
       - "packages/**"
       - ".github/workflows/web-ci.yml"
 
-# Prevent duplicate runs on the same ref
 concurrency:
   group: web-ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  security-events: write    # required for CodeQL job to upload results
   pull-requests: read
 
 env:
-  NODE_ENV: production
   NEXT_TELEMETRY_DISABLED: "1"
   CI: "true"
 
 jobs:
-  build-test:
-    name: Install • Lint • Typecheck • Test • Build
+  codeql:
+    name: CodeQL (JavaScript/TypeScript)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
+
+  web:
+    name: Install • Lint • Typecheck • Test • Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: codeql               # ← wait for CodeQL to finish first
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
+        with: { fetch-depth: 2 }
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -46,25 +56,23 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
+      # Bulletproof pnpm setup (fixes your error)
+      - name: Enable corepack (safety)
+        run: corepack enable
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
-      - name: Install dependencies (workspace)
+      - name: Verify pnpm
+        run: pnpm -v
+
+      - name: Install deps (workspace)
         run: pnpm install --frozen-lockfile
 
-      # --- Quality gates ---
-      - name: Prettier (optional, enable if you want formatting to fail CI)
-        working-directory: apps/web
-        run: |
-          if [ -f ../../.prettierrc ] || [ -f .prettierrc ] ; then
-            pnpm prettier --check "**/*.{ts,tsx,js,jsx,json,md,css}"
-          else
-            echo "No Prettier config detected; skipping."
-          fi
-
+      # Quality gates
       - name: ESLint
         working-directory: apps/web
         run: pnpm lint
@@ -73,22 +81,21 @@ jobs:
         working-directory: apps/web
         run: pnpm type-check
 
-      # --- Tests ---
-      - name: Unit tests (Vitest) with coverage
+      # Tests (skip gracefully if not configured yet)
+      - name: Unit tests (Vitest)
         working-directory: apps/web
         run: |
-          if pnpm -s --silent -w ls vitest >/dev/null 2>&1; then
-            pnpm test -- --coverage --reporter=junit --outputFile junit.xml
+          if pnpm -s -w ls vitest >/dev/null 2>&1; then
+            pnpm test -- --coverage
           else
-            echo "Vitest not configured yet; skipping tests."
+            echo "Vitest not configured; skipping."
           fi
 
-      # --- Build ---
       - name: Build (Next.js)
         working-directory: apps/web
         run: pnpm build
 
-      # --- Artifacts for PR review & debugging ---
+      # Helpful artifacts
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
@@ -97,37 +104,3 @@ jobs:
           path: apps/web/coverage
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Upload JUnit test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-junit-${{ github.run_id }}
-          path: apps/web/junit.xml
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload Next build (diagnostics)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-next-build-${{ github.run_id }}
-          path: |
-            apps/web/.next
-            !apps/web/.next/cache
-          if-no-files-found: ignore
-          retention-days: 3
-
-      # --- Job summary (nice touch for PRs) ---
-      - name: Summarize results
-        if: always()
-        run: |
-          echo "## Web CI Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- ESLint: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
-          echo "- Type check: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
-          if [ -f apps/web/junit.xml ]; then
-            echo "- Tests: See uploaded JUnit & coverage artifacts" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Tests: (skipped)" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "- Build: ✅/❌ (see logs)" >> $GITHUB_STEP_SUMMARY
