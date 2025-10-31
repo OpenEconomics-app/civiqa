@@ -1,0 +1,33 @@
+name: web-ci
+on:
+  pull_request:
+    branches: [develop, integration, master]
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml", "packages/**"]
+  push:
+    branches: [develop, integration, master]
+    paths: ["apps/web/**", ".github/workflows/web-ci.yml", "packages/**"]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: apps/web
+        run: pnpm lint
+      - name: Type check
+        working-directory: apps/web
+        run: pnpm type-check
+      - name: Build
+        working-directory: apps/web
+        run: pnpm build
