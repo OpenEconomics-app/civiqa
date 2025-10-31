@@ -1,0 +1,2 @@
+# Require admin review on web app areas
+/apps/web/* @OpenEconomics/admins
