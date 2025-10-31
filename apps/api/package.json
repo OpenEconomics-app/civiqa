@@ -4,7 +4,11 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint .",
+        "test": "jest",
+        "test:ci": "jest --ci --runInBand --coverage"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
