@@ -1,0 +1,5 @@
+# Require admin/team reviews by area
+/apps/web/*     @OpenEconomics/admins @OpenEconomics/dev-frontend
+/apps/api/*     @OpenEconomics/admins @OpenEconomics/dev-backend
+/.github/*      @OpenEconomics/admins @OpenEconomics/devops
+/docs/*         @OpenEconomics/admins @OpenEconomics/devops
