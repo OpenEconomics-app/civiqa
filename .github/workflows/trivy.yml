@@ -1,27 +1,27 @@
 name: Trivy Security Scan
 
 on:
-    pull_request:
-        branches: [develop, preprod, master]
+  pull_request:
+    branches: [develop, staging, master]
 
 concurrency:
-    group: trivy-${{ github.ref }}
-    cancel-in-progress: true
+  group: trivy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    trivy-fs:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read # just reads repo
+  trivy-fs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Run Trivy filesystem scan
-              uses: aquasecurity/trivy-action@0.28.0
-              with:
-                  scan-type: "fs"
-                  scan-ref: "."
-                  ignore-unfixed: true
-                  severity: "HIGH,CRITICAL"
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
