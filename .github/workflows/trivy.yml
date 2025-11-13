@@ -11,6 +11,8 @@ concurrency:
 jobs:
     trivy-fs:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read # just needs repo code
 
         steps:
             - name: Checkout

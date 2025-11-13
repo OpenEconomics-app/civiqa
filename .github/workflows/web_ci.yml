@@ -23,6 +23,8 @@ concurrency:
 jobs:
   web-ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # only needs to read repo
 
     defaults:
       run:
