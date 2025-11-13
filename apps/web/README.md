@@ -1,4 +1,4 @@
-# CIVIQA — Web Application (Next.js)
+# CIVIQA — Web Application (Next.js). 
 
 The **CIVIQA Web App** is a modern frontend built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**, designed for scalability and civic data transparency.  
 It lives inside the **OpenEconomics / CIVIQA monorepo** and follows strict separation of concerns (SoC) principles.
