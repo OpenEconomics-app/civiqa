@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "jest",
     "test:ci": "jest --ci --runInBand --coverage",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "next build"
   },
   "dependencies": {
     "next": "16.0.1",
