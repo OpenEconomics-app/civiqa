@@ -39,9 +39,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          # only include paths that REALLY exist to avoid the cache error
-          cache-dependency-path: |
-            apps/web/package-lock.json
 
       - name: Install dependencies
         run: npm ci
