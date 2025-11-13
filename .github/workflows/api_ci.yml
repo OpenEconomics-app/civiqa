@@ -1,0 +1,96 @@
+name: API CI
+
+on:
+    pull_request:
+        branches: [develop, preprod, master]
+        paths:
+            - "apps/api/**"
+    push:
+        branches: [develop]
+        paths:
+            - "apps/api/**"
+
+concurrency:
+    group: api-ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    api-ci:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read # only needs repo read access
+
+        defaults:
+            run:
+                working-directory: apps/api
+
+        services:
+            postgres:
+                image: postgres:15
+                env:
+                    POSTGRES_DB: civiqa_test
+                    POSTGRES_USER: civiqa
+                    POSTGRES_PASSWORD: civiqa
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd="pg_isready -U civiqa"
+                    --health-interval=10s
+                    --health-timeout=5s
+                    --health-retries=5
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: "8.2"
+                  extensions: mbstring, intl, pdo_pgsql, pgsql, bcmath
+                  coverage: xdebug
+
+            - name: Cache Composer dependencies
+              uses: actions/cache@v4
+              with:
+                  path: apps/api/vendor
+                  key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-composer-
+
+            - name: Install Composer dependencies
+              run: composer install --no-interaction --no-progress --prefer-dist
+
+            - name: Copy .env
+              run: |
+                  if [ ! -f .env ]; then
+                    cp .env.example .env
+                  fi
+
+            - name: Generate app key
+              run: php artisan key:generate
+
+            - name: Run migrations
+              env:
+                  DB_CONNECTION: pgsql
+                  DB_HOST: 127.0.0.1
+                  DB_PORT: 5432
+                  DB_DATABASE: civiqa_test
+                  DB_USERNAME: civiqa
+                  DB_PASSWORD: civiqa
+              run: php artisan migrate --force
+
+            - name: Run tests
+              env:
+                  DB_CONNECTION: pgsql
+                  DB_HOST: 127.0.0.1
+                  DB_PORT: 5432
+                  DB_DATABASE: civiqa_test
+                  DB_USERNAME: civiqa
+                  DB_PASSWORD: civiqa
+              run: |
+                  if grep -q "\"test\":" composer.json; then
+                    composer test
+                  else
+                    php artisan test
+                  fi
