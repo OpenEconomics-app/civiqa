@@ -1,67 +1,66 @@
 name: Web CI
 
 on:
-    pull_request:
-        branches: [develop, preprod, master]
-        paths:
-            - "apps/web/**"
-            - "packages/**"
-            - "package.json"
-            - "package-lock.json"
-    push:
-        branches: [develop]
-        paths:
-            - "apps/web/**"
-            - "packages/**"
-            - "package.json"
-            - "package-lock.json"
+  pull_request:
+    branches: [develop, staging, master]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    branches: [develop]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
 
 concurrency:
-    group: web-ci-${{ github.ref }}
-    cancel-in-progress: true
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    web-ci:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read # only needs repo read access
+  web-ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-        defaults:
-            run:
-                working-directory: apps/web
+    defaults:
+      run:
+        working-directory: apps/web
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Use Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: npm
-                  cache-dependency-path: |
-                      package-lock.json
-                      apps/web/package-lock.json
-                      packages/**/package-lock.json
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # only include paths that REALLY exist to avoid the cache error
+          cache-dependency-path: |
+            apps/web/package-lock.json
 
-            - name: Install dependencies
-              run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-            - name: Lint
-              run: npm run lint --if-present
+      - name: Lint
+        run: npm run lint --if-present
 
-            - name: Unit tests
-              run: npm run test --if-present
+      - name: Unit tests
+        run: npm run test --if-present
 
-            - name: Build
-              run: npm run build --if-present
+      - name: Build
+        run: npm run build --if-present
 
-            - name: Upload build artifact
-              if: success()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: web-build
-                  path: |
-                      .next
-                      next.config.*.js
-                  if-no-files-found: ignore
+      - name: Upload build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            .next
+            next.config.*.js
+          if-no-files-found: ignore
