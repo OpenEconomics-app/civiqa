@@ -1,4 +1,3 @@
 # Require admin review on web app areas
-/apps/web/* @OpenEconomics/admins
 /apps/web/* @OpenEconomics/Leads
 /apps/web/* @OpenEconomics/dev-frontend
